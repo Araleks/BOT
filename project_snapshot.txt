@@ -1,0 +1,1524 @@
+PROJECT SNAPSHOT
+Generated at: 2026-02-01 15:38:48
+
+Included files:
+  - export_project_snapshot.py
+  - falling_star_daemon.py
+  - handlers\__init__.py
+  - handlers\log_handler.py
+  - handlers\paper_handler.py
+  - handlers\paper_trading.py
+  - handlers\telegram_handler.py
+  - notifier.py
+  - setup_manager.py
+  - setups\__init__.py
+  - setups\falling_star.py
+  - setups\hammer.py
+  - setups\max_volume_zone.py
+  - setups\rsi_zone.py
+  - signal_formatter.py
+  - signal_router.py
+  - test_save.py
+  - test_setup_manager.py
+  - utils\__init__.py
+  - utils\timeframes.py
+
+================================================================================
+
+================================================================================
+FILE: export_project_snapshot.py
+PATH: export_project_snapshot.py
+================================================================================
+
+import os
+from datetime import datetime
+
+# === КОНФИГУРАЦИЯ ===
+
+INCLUDE_DIRS = [
+    "setups",
+    "utils",
+    "handlers",
+]
+
+ALLOWED_EXTENSIONS = {".py", ".env"}
+
+EXCLUDE_DIRS = {".venv", "__pycache__", ".git"}
+
+OUTPUT_FILENAME = "project_snapshot.txt"
+
+
+def should_include_file(path: str) -> bool:
+    _, ext = os.path.splitext(path)
+    return ext in ALLOWED_EXTENSIONS
+
+
+def walk_and_collect(base_dir: str) -> list[tuple[str, str]]:
+    collected = []
+
+    for root, dirs, files in os.walk(base_dir):
+        dirs[:] = [d for d in dirs if d not in EXCLUDE_DIRS]
+
+        for fname in files:
+            abs_path = os.path.join(root, fname)
+            rel_path = os.path.relpath(abs_path, start=".")
+
+            if should_include_file(abs_path):
+                collected.append((abs_path, rel_path))
+
+    return collected
+
+
+def read_file_safely(path: str) -> str:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        try:
+            with open(path, "r", encoding="cp1251") as f:
+                return f.read()
+        except Exception as e:
+            return f"<<Ошибка чтения файла (кодировка): {e}>>"
+    except Exception as e:
+        return f"<<Ошибка чтения файла: {e}>>"
+
+
+def main():
+    all_files = []
+
+    # 0. Автоматически добавляем все .py и .env файлы из корня
+    for fname in os.listdir("."):
+        if os.path.isfile(fname) and should_include_file(fname):
+            abs_path = os.path.abspath(fname)
+            rel_path = fname
+            if (abs_path, rel_path) not in all_files:
+                all_files.append((abs_path, rel_path))
+
+    # 1. Обходим указанные папки
+    for d in INCLUDE_DIRS:
+        if not os.path.isdir(d):
+            continue
+        collected = walk_and_collect(d)
+        for abs_path, rel_path in collected:
+            if (abs_path, rel_path) not in all_files:
+                all_files.append((abs_path, rel_path))
+
+    # 2. Сортируем
+    all_files.sort(key=lambda x: x[1])
+
+    # 3. Пишем в файл
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    header = [
+        "PROJECT SNAPSHOT",
+        f"Generated at: {now_str}",
+        "",
+        "Included files:",
+    ]
+    for _, rel_path in all_files:
+        header.append(f"  - {rel_path}")
+    header.append("\n" + "=" * 80 + "\n")
+
+    with open(OUTPUT_FILENAME, "w", encoding="utf-8") as out:
+        out.write("\n".join(header))
+
+        for abs_path, rel_path in all_files:
+            out.write(f"\n{'=' * 80}\n")
+            out.write(f"FILE: {os.path.basename(rel_path)}\n")
+            out.write(f"PATH: {rel_path}\n")
+            out.write(f"{'=' * 80}\n\n")
+
+            content = read_file_safely(abs_path)
+            out.write(content)
+            out.write("\n\n")
+
+    print(f"✅ Снимок проекта сохранён в файл: {OUTPUT_FILENAME}")
+    print(f"Всего файлов: {len(all_files)}")
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+================================================================================
+FILE: falling_star_daemon.py
+PATH: falling_star_daemon.py
+================================================================================
+
+# falling_star_daemon.py
+
+import os
+import time
+from dataclasses import dataclass
+from collections import deque
+from typing import Dict, Deque, Tuple, List
+
+import ccxt
+from dotenv import load_dotenv
+
+from utils.timeframes import tf_seconds
+
+from setup_manager import SetupManager
+from setups import FallingStarSetup, HammerSetup, MaxVolumeZoneSetup, RSIZoneSetup
+from models import Candle
+
+from signal_router import SignalRouter
+from handlers.telegram_handler import make_telegram_handler
+from handlers.log_handler import log_handler
+from handlers.paper_trading import PaperTradingEngine, make_paper_trading_handler
+
+
+@dataclass
+class Config:
+    exchange_id: str
+    symbols: list[str]
+    timeframes: list[str]
+    tz: str
+    tg_token: str
+    tg_chat_id: str
+    poll_sec: float = 5.0
+
+
+def load_config() -> Config:
+    load_dotenv()
+    exchange_id = (os.getenv("EXCHANGE_ID") or "binance").strip()
+    symbols = [s.strip() for s in (os.getenv("SYMBOLS") or "BTC/USDT").split(",") if s.strip()]
+    timeframes = [t.strip() for t in (os.getenv("TIMEFRAMES") or "5m").split(",") if t.strip()]
+    tz = (os.getenv("TZ") or "Europe/Helsinki").strip()
+    tg_token = (os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
+    tg_chat_id = (os.getenv("TELEGRAM_CHAT_ID") or "").strip()
+    return Config(exchange_id, symbols, timeframes, tz, tg_token, tg_chat_id)
+
+
+def make_exchange(exchange_id: str) -> ccxt.Exchange:
+    exchange_class = getattr(ccxt, exchange_id)
+    exchange = exchange_class(
+        {
+            "enableRateLimit": True,
+            "options": {"defaultType": "spot"},
+        }
+    )
+    exchange.load_markets()
+    return exchange
+
+Store = Dict[Tuple[str, str], Deque[Tuple[int, float, float, float, float]]]
+
+def ts_close_from_open(t_open_ms: int, timeframe_sec: int) -> int:
+    return t_open_ms + timeframe_sec * 1000
+
+def main():
+    cfg = load_config()
+
+    exchange = make_exchange(cfg.exchange_id)
+    # создаём движок бумажной торговли
+    paper_engine = PaperTradingEngine(exchange)
+
+    router = SignalRouter(
+        handlers=[
+            make_telegram_handler(cfg.tg_token, cfg.tg_chat_id, cfg.tz), 
+            log_handler, 
+            make_paper_trading_handler(paper_engine),
+        ]
+    )
+    
+    setup_manager = SetupManager(
+        setups=[
+            FallingStarSetup(),
+            HammerSetup(),
+            MaxVolumeZoneSetup(exchange, cfg),
+            RSIZoneSetup(exchange, cfg),
+        ]
+    )
+
+    last_seen_close: Dict[Tuple[str, str], int] = {}
+    store: Store = {}
+
+    for symbol in cfg.symbols:
+        for timeframe in cfg.timeframes:
+            key = (symbol, timeframe)
+            try:
+                limit = 10
+                raw = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+                if not raw or len(raw) < 2:
+                    print(f"⚠️ Недостаточно данных: {symbol} {timeframe}")
+                    continue
+
+                timeframe_sec = tf_seconds(exchange, timeframe)
+
+                closed_rows = raw[:-1]
+                deque5: Deque[Candle] = deque(maxlen=5)
+
+                for row in closed_rows[-5:]:
+                    t_open_ms, o, h, l, c, *_ = row
+                    t_close_ms = ts_close_from_open(int(t_open_ms), timeframe_sec)
+                    deque5.append(
+                        (
+                            t_close_ms,
+                            float(o),
+                            float(h),
+                            float(l),
+                            float(c),
+                        )
+                    )
+
+                store[key] = deque5
+
+                if deque5:
+                    last_seen_close[key] = deque5[-1][0]
+
+            except Exception as e:
+                print(f"❌ Предзаполнение {symbol} {timeframe}: {e}")
+
+            time.sleep(0.15)
+
+    print("🟢 Старт мониторинга…")
+
+    while True:
+        for symbol in cfg.symbols:
+            for timeframe in cfg.timeframes:
+                key = (symbol, timeframe)
+                try:
+                    limit = 10
+                    raw = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+                    if not raw or len(raw) < 2:
+                        continue
+
+                    timeframe_sec = tf_seconds(exchange, timeframe)
+
+                    closed_records: List[Tuple[int, float, float, float, float]] = []
+                    for row in raw[:-1]: 
+                        t_open_ms, o, h, l, c, *_ = row 
+                        t_close_ms = ts_close_from_open(int(t_open_ms), timeframe_sec) 
+                        closed_records.append( ( 
+                            t_close_ms, 
+                            float(o), 
+                            float(h), 
+                            float(l), 
+                            float(c), 
+                            ) 
+                        )
+                    
+                    closed_records.sort(key=lambda x: x[0])
+
+                    last_close_ts = last_seen_close.get(key, 0)
+
+                    for (t_close_ms, o, h, l, c) in closed_records:
+                        if t_close_ms <= last_close_ts:
+                            continue
+
+                        candle = Candle(
+                            symbol=symbol,
+                            timeframe=timeframe,
+                            t_close_ms=t_close_ms,
+                            o=o,
+                            h=h,
+                            l=l,
+                            c=c,
+                        )
+
+                        # 1. Сначала даём свечу PaperTradingEngine (для отработки SL/TP по уже открытым позициям) 
+                        paper_engine.on_candle(candle)
+                        
+                        # 2. Генерируем сигналы
+                        signals = setup_manager.process_candle(candle)
+
+                        # 3. Обогащаем сигналы данными свечи (для открытия новых позиций)
+                        for sig in signals: 
+                            sig.extra.setdefault("candle", { 
+                                "o": candle.o, 
+                                "h": candle.h, 
+                                "l": candle.l, 
+                                "c": candle.c, 
+                            }) 
+                            router.route(sig)
+
+                        deque_for_key = store.get(key)
+                        if deque_for_key is None:
+                            deque_for_key = deque(maxlen=5)
+                            store[key] = deque_for_key
+                        deque_for_key.append((t_close_ms, o, h, l, c))
+
+                        last_seen_close[key] = t_close_ms
+                        last_close_ts = t_close_ms
+
+                    if closed_records:
+                        last5 = closed_records[-5:]
+                        deque_for_key = deque(last5, maxlen=5)
+                        store[key] = deque_for_key
+
+                except ccxt.RateLimitExceeded as e:
+                    print(f"⏳ Rate limit {symbol} {timeframe}: {e}; пауза 2с")
+                    time.sleep(2)
+                except Exception as e:
+                    print(f"❌ Ошибка {symbol} {timeframe}: {e}")
+
+                time.sleep(0.15)
+
+        time.sleep(cfg.poll_sec)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+================================================================================
+FILE: __init__.py
+PATH: handlers\__init__.py
+================================================================================
+
+# handlers/__init__.py
+# можно оставить пустым
+
+
+
+================================================================================
+FILE: log_handler.py
+PATH: handlers\log_handler.py
+================================================================================
+
+# handlers/log_handler.py
+from models import Signal
+
+
+def log_handler(signal: Signal):
+    print(
+        f"LOG: {signal.symbol} {signal.timeframe} {signal.setup} "
+        f"{signal.direction} @ {signal.t_close_ms}"
+    )
+
+
+
+================================================================================
+FILE: paper_handler.py
+PATH: handlers\paper_handler.py
+================================================================================
+
+# handlers/paper_handler.py
+from models import Signal
+
+
+def paper_handler(signal: Signal):
+    print(f"PAPER: обработан сигнал {signal.setup} {signal.symbol}")
+
+
+
+================================================================================
+FILE: paper_trading.py
+PATH: handlers\paper_trading.py
+================================================================================
+
+# handlers/paper_trading.py
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field, asdict
+from typing import List, Optional
+
+from models import Signal, Candle
+from web.backend.app.models import TradePart, CompletedTrade
+
+# Импортируем функции аналитики
+from analytics.stats import print_stats_for_trades
+from analytics.csv_export import export_trades_to_csv
+from analytics.equity import plot_equity_curve_for_trades
+
+
+@dataclass
+class Position:
+    """
+    Открытая бумажная позиция.
+    """
+    id: int
+    symbol: str
+    timeframe: str
+    direction: str  # 'long' или 'short'
+    setup: str
+    opened_at_ms: int
+    entry_price: float
+    size_usdt: float
+    qty: float
+
+    sl: float
+    tp1: float
+    tp2: float
+
+    tp1_hit: bool = False
+    closed: bool = False
+    closed_at_ms: Optional[int] = None
+    parts: List[TradePart] = field(default_factory=list)
+
+    def remaining_qty(self) -> float:
+        used = sum(p.qty for p in self.parts)
+        return self.qty - used
+
+    def remaining_size_usdt(self) -> float:
+        if self.qty == 0:
+            return 0.0
+        # Пропорционально количеству
+        return self.size_usdt * (self.remaining_qty() / self.qty)
+
+
+class PaperTradingEngine:
+    """
+    Универсальный движок бумажной торговли.
+    - Открывает сделки по сигналам (кроме RSI).
+    - Отрабатывает SL/TP по новым свечам.
+    - Ведёт историю сделок.
+    """
+
+    def __init__(
+        self,
+        exchange,
+        initial_balance_usdt: float = 100_000.0,
+        risk_per_trade_usdt: float = 100.0,
+        sl_offset_pct: float = 0.001,  # 0.1% от цены свечи
+    ):
+        self.exchange = exchange
+        self.initial_balance_usdt = initial_balance_usdt
+        self.risk_per_trade_usdt = risk_per_trade_usdt
+        self.sl_offset_pct = sl_offset_pct
+
+        self._next_position_id = 1
+        self.open_positions: List[Position] = []
+        self.completed_trades: List[CompletedTrade] = []
+
+    # ---------- Публичные методы ----------
+
+    def on_signal(self, signal: Signal):
+        """
+        Обработка нового сигнала: открытие новой позиции.
+        """
+        # Не торгуем RSI
+        if signal.setup == "RSI":
+            return
+
+        # Нас интересуют только направленные сигналы
+        if signal.direction not in ("bull", "bear"):
+            return
+
+        candle_data = signal.extra.get("candle")
+        if not candle_data:
+            # Без данных свечи не можем корректно посчитать SL/TP
+            print(f"⚠️ Нет данных свечи в signal.extra['candle'] для {signal.symbol} {signal.timeframe}")
+            return
+
+        o = float(candle_data["o"])
+        h = float(candle_data["h"])
+        l = float(candle_data["l"])
+        c = float(candle_data["c"])
+
+        # 1. Получаем цену входа по рынку
+        entry_price = self._get_entry_price(signal.symbol, signal.direction)
+        if entry_price is None:
+            print(f"⚠️ Не удалось получить цену входа для {signal.symbol}")
+            return
+
+        # 2. Рассчитываем SL от свечи сигнала
+        sl = self._calc_stop_loss(signal.direction, h, l)
+
+        # 3. Рассчитываем TP1 и TP2
+        tp1, tp2 = self._calc_take_profits(signal.direction, entry_price, sl)
+
+        # 4. Размер позиции: фиксированные 100 USDT
+        size_usdt = self.risk_per_trade_usdt
+        qty = self._calc_qty(size_usdt, entry_price, signal.direction)
+
+        # 5. Создаём позицию
+        pos = Position(
+            id=self._next_position_id,
+            symbol=signal.symbol,
+            timeframe=signal.timeframe,
+            direction="long" if signal.direction == "bull" else "short",
+            setup=signal.setup,
+            opened_at_ms=signal.t_close_ms,
+            entry_price=entry_price,
+            size_usdt=size_usdt,
+            qty=qty,
+            sl=sl,
+            tp1=tp1,
+            tp2=tp2,
+        )
+        self._next_position_id += 1
+
+        self.open_positions.append(pos)
+
+        print(
+            f"PAPER OPEN #{pos.id}: {pos.symbol} {pos.timeframe} {pos.direction} "
+            f"entry={pos.entry_price:.4f} sl={pos.sl:.4f} tp1={pos.tp1:.4f} tp2={pos.tp2:.4f} "
+            f"size={pos.size_usdt}USDT qty={pos.qty:.6f}"
+        )
+
+    def on_candle(self, candle: Candle):
+        """
+        Обработка новой свечи: проверка SL/TP для всех открытых позиций по этому символу.
+        Важно: вызывается на каждой закрытой свече (как и сетапы).
+        """
+        if not self.open_positions:
+            return
+
+        symbol = candle.symbol
+        high = candle.h
+        low = candle.l
+        t_close_ms = candle.t_close_ms
+
+        # Проходим по копии списка, чтобы можно было модифицировать оригинал
+        for pos in list(self.open_positions):
+            if pos.symbol != symbol:
+                continue
+            if pos.closed:
+                continue
+
+            self._process_position_on_candle(pos, high, low, t_close_ms)
+
+        # Удаляем закрытые позиции из списка открытых
+        self.open_positions = [p for p in self.open_positions if not p.closed]
+
+    # ---------- Внутренняя логика ----------
+
+    def _get_entry_price(self, symbol: str, direction: str) -> Optional[float]:
+        """
+        Имитация входа по рынку: берём bid/ask из тикера.
+        """
+        try:
+            ticker = self.exchange.fetch_ticker(symbol)
+        except Exception as e:
+            print(f"❌ Ошибка получения тикера для {symbol}: {e}")
+            return None
+
+        bid = ticker.get("bid")
+        ask = ticker.get("ask")
+        last = ticker.get("last")
+
+        if direction == "bull":
+            # Покупка по рынку — ближе к ask
+            return ask or last or bid
+        else:
+            # Продажа по рынку — ближе к bid
+            return bid or last or ask
+
+    def _calc_stop_loss(self, direction: str, h: float, l: float) -> float:
+        """
+        SL от свечи сигнала:
+        - long: чуть ниже low
+        - short: чуть выше high
+        """
+        if direction == "bull":
+            offset = l * self.sl_offset_pct
+            return l - offset
+        else:
+            offset = h * self.sl_offset_pct
+            return h + offset
+
+    def _calc_take_profits(self, direction: str, entry_price: float, sl: float) -> tuple[float, float]:
+        """
+        TP1 = 1.5R, TP2 = 3R, где R = |entry - SL|.
+        """
+        risk = abs(entry_price - sl)
+        if direction == "bull":
+            tp1 = entry_price + 1.5 * risk
+            tp2 = entry_price + 3.0 * risk
+        else:
+            tp1 = entry_price - 1.5 * risk
+            tp2 = entry_price - 3.0 * risk
+        return tp1, tp2
+
+    def _calc_qty(self, size_usdt: float, entry_price: float, direction: str) -> float:
+        """
+        Количество монет: 100 USDT / цена.
+        Для short просто делаем qty отрицательным.
+        """
+        if entry_price <= 0:
+            return 0.0
+        qty = size_usdt / entry_price
+        if direction == "bear":
+            qty = -qty
+        return qty
+
+    def _process_position_on_candle(
+        self,
+        pos: Position,
+        high: float,
+        low: float,
+        t_close_ms: int,
+    ):
+        """
+        Проверка, что цена пришла первой — к SL, TP1 или TP2.
+        Логика:
+        - всегда сначала проверяем SL;
+        - затем TP1 (если ещё не был);
+        - затем TP2.
+        """
+        remaining_qty = pos.remaining_qty()
+        if remaining_qty == 0:
+            # На всякий случай
+            self._close_position_if_done(pos, t_close_ms)
+            return
+
+        if pos.direction == "long":
+            self._process_long_position(pos, high, low, t_close_ms)
+        else:
+            self._process_short_position(pos, high, low, t_close_ms)
+
+    def _process_long_position(
+        self,
+        pos: Position,
+        high: float,
+        low: float,
+        t_close_ms: int,
+    ):
+        # 1. Проверяем SL
+        if low <= pos.sl:
+            self._close_full_at_price(pos, pos.sl, t_close_ms, reason="SL")
+            return
+
+        # 2. TP1 (если ещё не был)
+        if not pos.tp1_hit and high >= pos.tp1:
+            self._close_half_at_price(pos, pos.tp1, t_close_ms, reason="TP1")
+            # Переносим SL в безубыток
+            pos.sl = pos.entry_price
+            pos.tp1_hit = True
+
+        # 3. TP2 (если есть ещё объём)
+        remaining_qty = pos.remaining_qty()
+        if remaining_qty != 0 and high >= pos.tp2:
+            self._close_full_at_price(pos, pos.tp2, t_close_ms, reason="TP2")
+
+    def _process_short_position(
+        self,
+        pos: Position,
+        high: float,
+        low: float,
+        t_close_ms: int,
+    ):
+        # 1. SL
+        if high >= pos.sl:
+            self._close_full_at_price(pos, pos.sl, t_close_ms, reason="SL")
+            return
+
+        # 2. TP1
+        if not pos.tp1_hit and low <= pos.tp1:
+            self._close_half_at_price(pos, pos.tp1, t_close_ms, reason="TP1")
+            # Безубыток
+            pos.sl = pos.entry_price
+            pos.tp1_hit = True
+
+        # 3. TP2
+        remaining_qty = pos.remaining_qty()
+        if remaining_qty != 0 and low <= pos.tp2:
+            self._close_full_at_price(pos, pos.tp2, t_close_ms, reason="TP2")
+
+    def _close_half_at_price(self, pos: Position, price: float, t_close_ms: int, reason: str):
+        remaining_qty = pos.remaining_qty()
+        if remaining_qty == 0:
+            return
+
+        half_qty = remaining_qty / 2.0
+        half_size_usdt = pos.remaining_size_usdt() / 2.0
+
+        part = TradePart(
+            size_usdt=half_size_usdt,
+            qty=half_qty,
+            entry_price=pos.entry_price,
+            exit_price=price,
+            exit_time_ms=t_close_ms,
+            reason=reason,
+        )
+        pos.parts.append(part)
+
+        print(
+            f"PAPER PART #{pos.id}: {pos.symbol} {pos.timeframe} {pos.direction} "
+            f"{reason} qty={half_qty:.6f} exit={price:.4f} pnl={part.pnl_usdt:.2f}USDT "
+            f"({part.pnl_percent:.2f}%)"
+        )
+
+        self._close_position_if_done(pos, t_close_ms)
+
+    def _close_full_at_price(self, pos: Position, price: float, t_close_ms: int, reason: str):
+        remaining_qty = pos.remaining_qty()
+        if remaining_qty == 0:
+            return
+
+        remaining_size_usdt = pos.remaining_size_usdt()
+
+        part = TradePart(
+            size_usdt=remaining_size_usdt,
+            qty=remaining_qty,
+            entry_price=pos.entry_price,
+            exit_price=price,
+            exit_time_ms=t_close_ms,
+            reason=reason,
+        )
+        pos.parts.append(part)
+
+        print(
+            f"PAPER CLOSE #{pos.id}: {pos.symbol} {pos.timeframe} {pos.direction} "
+            f"{reason} qty={remaining_qty:.6f} exit={price:.4f} pnl={part.pnl_usdt:.2f}USDT "
+            f"({part.pnl_percent:.2f}%)"
+        )
+
+        self._close_position_if_done(pos, t_close_ms)
+
+    def _close_position_if_done(self, pos: Position, t_close_ms: int):
+        # Если ещё есть объём — сделка не завершена
+        if pos.remaining_qty() != 0:
+            return
+
+        # Фиксируем закрытие
+        pos.closed = True
+        pos.closed_at_ms = t_close_ms
+
+        # Итоговый PnL
+        total_pnl_usdt = sum(p.pnl_usdt for p in pos.parts)
+        total_pnl_percent = (
+            total_pnl_usdt / pos.size_usdt * 100.0
+            if pos.size_usdt else 0.0
+        )
+
+        # --- Флаги достижения уровней ---
+        tp1_hit = any(p.reason == "TP1" for p in pos.parts)
+        tp2_hit = any(p.reason == "TP2" for p in pos.parts)
+        sl_hit  = any(p.reason == "SL"  for p in pos.parts)
+
+        # --- Причина закрытия ---
+        if tp2_hit:
+            close_reason = "TP1+TP2"
+        elif tp1_hit and sl_hit:
+            close_reason = "TP1+SL"
+        elif sl_hit:
+            close_reason = "SL-only"
+        else:
+            close_reason = None
+
+        # --- Формируем CompletedTrade ---
+        trade = CompletedTrade(
+            id=pos.id,
+            symbol=pos.symbol,
+            timeframe=pos.timeframe,
+            direction=pos.direction,
+            setup=pos.setup,
+            opened_at_ms=pos.opened_at_ms,
+            closed_at_ms=pos.closed_at_ms,
+
+            entry_price=pos.entry_price,
+            size_usdt=pos.size_usdt,
+
+            tp1_price=pos.tp1,
+            tp2_price=pos.tp2,
+            sl_price=pos.sl,
+
+            tp1_hit=tp1_hit,
+            tp2_hit=tp2_hit,
+            sl_hit=sl_hit,
+
+            close_reason=close_reason,
+
+            pnl_usdt=total_pnl_usdt,
+            pnl_percent=total_pnl_percent,
+
+            parts=list(pos.parts),
+        )
+
+        # Добавляем в историю
+        self.completed_trades.append(trade)
+
+        print(
+            f"PAPER DONE #{trade.id}: {trade.symbol} {trade.timeframe} {trade.direction} "
+            f"pnl={trade.pnl_usdt:.2f}USDT ({trade.pnl_percent:.2f}%)"
+        )
+
+        # Сохраняем JSON
+        self.save_trades_to_json()
+
+
+    # ---------- Вспомогательные методы для отчётности ----------
+
+    def get_equity(self) -> float:
+        """
+        Текущий баланс = initial + суммарный PnL по закрытым сделкам.
+        (Открытые позиции не учитываем, можно добавить позже).
+        """
+        total_pnl = sum(t.pnl_usdt for t in self.completed_trades)
+        return self.initial_balance_usdt + total_pnl
+
+    def export_to_csv(self, path: str) -> None:
+        """
+        Экспорт всех завершённых сделок в CSV.
+        """
+        export_trades_to_csv(self.completed_trades, path)
+
+    def print_stats(self) -> None:
+        """
+        Печать статистики по сделкам (по каждому сетапу).
+        """
+        print_stats_for_trades(self.completed_trades)
+
+    def plot_equity_curve(self, setup: str) -> None:
+        """
+        Построение equity-curve по конкретному сетапу.
+        """
+        plot_equity_curve_for_trades(self.completed_trades, setup, self.initial_balance_usdt)
+
+    def save_trades_to_json(self, path: str = "web/backend/app/data/trades.json") -> None:
+        """
+        Сохраняет все завершённые сделки в JSON-файл,
+        чтобы backend (FastAPI) мог их читать.
+        """
+        import json
+        from pathlib import Path
+
+        # Преобразуем CompletedTrade → dict
+        data = [t.dict() for t in self.completed_trades]
+
+        # Создаём директорию, если её нет
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Записываем JSON
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+
+        print(f"💾 Trades saved to JSON: {path}")
+
+
+def make_paper_trading_handler(engine: PaperTradingEngine):
+    """
+    Адаптер под SignalRouter: handler(signal: Signal).
+    """
+    def handler(signal: Signal):
+        engine.on_signal(signal)
+    return handler
+
+
+
+================================================================================
+FILE: telegram_handler.py
+PATH: handlers\telegram_handler.py
+================================================================================
+
+# handlers/telegram_handler.py
+from models import Signal
+from notifier import send_telegram_message
+from signal_formatter import format_signal
+
+
+def make_telegram_handler(tg_token: str, tg_chat_id: str, tz: str):
+    def handler(signal: Signal):
+        text = format_signal(signal, tz)
+        send_telegram_message(tg_token, tg_chat_id, text)
+    return handler
+
+
+
+================================================================================
+FILE: notifier.py
+PATH: notifier.py
+================================================================================
+
+# notifier.py
+import requests
+
+def send_telegram_message(token: str, chat_id: str, text: str) -> None:
+    """
+    Универсальная функция отправки сообщений в Telegram.
+    Используется всеми сетапами и основным циклом.
+    """
+    if not token or not chat_id:
+        print("⚠️ TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID пусты — пропускаю отправку")
+        return
+
+    try:
+        r = requests.post(
+            f"https://api.telegram.org/bot{token}/sendMessage",
+            json={
+                "chat_id": chat_id,
+                "text": text,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            },
+            timeout=10,
+        )
+        r.raise_for_status()
+    except Exception as e:
+        print(f"❌ Ошибка отправки в Telegram: {e}")
+
+
+
+================================================================================
+FILE: setup_manager.py
+PATH: setup_manager.py
+================================================================================
+
+# setup_manager.py
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import List, Protocol, Iterable
+
+from models import Candle, Signal
+
+
+class BaseSetup(Protocol):
+    """
+    Минимальный интерфейс сетапа.
+    Каждый сетап принимает закрытую свечу и возвращает 0..N сигналов.
+    """
+    name: str
+
+    def on_candle(self, candle: Candle) -> List[Signal]:
+        ...
+
+
+@dataclass
+class SetupManager:
+    """
+    Менеджер, который прогоняет свечу через все подключённые сетапы
+    и возвращает список сигналов.
+    """
+    setups: Iterable[BaseSetup]
+
+    def process_candle(self, candle: Candle) -> List[Signal]:
+        signals: List[Signal] = []
+        for setup in self.setups:
+            try:
+                setup_signals = setup.on_candle(candle)
+                if setup_signals:
+                    signals.extend(setup_signals)
+            except Exception as e:
+                print(f"❌ Ошибка в сетапе {getattr(setup, 'name', setup)}: {e}")
+        return signals
+
+
+
+================================================================================
+FILE: __init__.py
+PATH: setups\__init__.py
+================================================================================
+
+#__init__.py
+from .falling_star import FallingStarSetup
+from .hammer import HammerSetup
+from .max_volume_zone import MaxVolumeZoneSetup
+from .rsi_zone import RSIZoneSetup
+
+__all__ = [
+    "FallingStarSetup",
+    "HammerSetup",
+    "MaxVolumeZoneSetup",
+    "RSIZoneSetup",
+]
+
+
+
+================================================================================
+FILE: falling_star.py
+PATH: setups\falling_star.py
+================================================================================
+
+# setups/falling_star.py
+from models import Candle, Signal
+
+def is_falling_star(o: float, h: float, l: float, c: float) -> bool:
+    """
+    Упрощённые правила Falling Star:
+      - тело мало: |o - c| <= 0.3 * (h - l)
+      - верхняя тень большая: (h - max(o, c)) >= 0.6 * (h - l)
+      - нижняя тень маленькая: (min(o, c) - l) <= 0.15 * (h - l)
+    """
+    range_high_low = max(h - l, 1e-12)
+    body_size = abs(o - c)
+    upper_shadow = h - max(o, c)
+    lower_shadow = min(o, c) - l
+    return (
+        body_size <= 0.3 * range_high_low
+        and upper_shadow >= 0.6 * range_high_low
+        and lower_shadow <= 0.15 * range_high_low
+    )
+
+class FallingStarSetup:
+    """
+    Адаптер для менеджера сетапов.
+    Использует is_falling_star, но не шлёт Telegram — только возвращает Signal.
+    """
+    name = "FallingStar"
+
+    def on_candle(self, candle: Candle) -> list[Signal]:
+        if is_falling_star(candle.o, candle.h, candle.l, candle.c):
+            return [
+                Signal(
+                    symbol=candle.symbol,
+                    timeframe=candle.timeframe,
+                    t_close_ms=candle.t_close_ms,
+                    setup=self.name,
+                    direction="bear",   # падающая звезда — медвежий сигнал
+                    extra={},
+                )
+            ]
+        return []
+
+
+
+================================================================================
+FILE: hammer.py
+PATH: setups\hammer.py
+================================================================================
+
+# setups/hammer.py
+def is_hammer(o: float, h: float, l: float, c: float) -> bool:
+    """
+    Зеркальная логика Falling Star:
+    - маленькое тело
+    - длинная нижняя тень
+    - короткая верхняя тень
+    """
+    range_hl = max(h - l, 1e-12)
+    body = abs(o - c)
+    upper_shadow = h - max(o, c)
+    lower_shadow = min(o, c) - l
+
+    return (
+        body <= 0.3 * range_hl and
+        lower_shadow >= 0.6 * range_hl and
+        upper_shadow <= 0.15 * range_hl
+    )
+
+from models import Candle, Signal
+
+class HammerSetup:
+    """
+    Адаптер для менеджера сетапов.
+    Использует is_hammer, возвращает Signal без Telegram.
+    """
+    name = "Hammer"
+
+    def on_candle(self, candle: Candle) -> list[Signal]:
+        if is_hammer(candle.o, candle.h, candle.l, candle.c):
+            return [
+                Signal(
+                    symbol=candle.symbol,
+                    timeframe=candle.timeframe,
+                    t_close_ms=candle.t_close_ms,
+                    setup=self.name,
+                    direction="bull",  # молот — бычий сигнал
+                    extra={},
+                )
+            ]
+        return []
+
+
+
+================================================================================
+FILE: max_volume_zone.py
+PATH: setups\max_volume_zone.py
+================================================================================
+
+# setups/max_volume_zone.py
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from utils.timeframes import tf_seconds
+from models import Candle, Signal
+
+class MaxVolumeZoneSetup:
+    """
+    Адаптер для Max_Volume_Zone под менеджер сетапов.
+    Берёт exchange и cfg в конструктор и на каждой свече возвращает Signal.
+    """
+    name = "MaxVolumeZone"
+
+    def __init__(self, exchange, cfg):
+        self.exchange = exchange
+        self.cfg = cfg
+
+    def on_candle(self, candle: Candle) -> list[Signal]:
+        exchange = self.exchange
+        cfg = self.cfg
+
+        symbol = candle.symbol
+        timeframe = candle.timeframe
+        candle_high = candle.h
+        candle_low = candle.l
+        candle_close_ts_ms = candle.t_close_ms
+
+        timeframe_sec = tf_seconds(exchange, timeframe)
+        if timeframe_sec <= 0:
+            return []
+
+        candle_open_ts_ms = candle_close_ts_ms - timeframe_sec * 1000
+
+        tz = ZoneInfo(cfg.tz)
+        dt_open = datetime.fromtimestamp(candle_open_ts_ms / 1000, tz)
+        dt_close = datetime.fromtimestamp(candle_close_ts_ms / 1000, tz)
+
+        open_str = dt_open.strftime("%Y-%m-%d %H:%M")
+        close_str = dt_close.strftime("%Y-%m-%d %H:%M")
+
+        price_range = candle_high - candle_low
+        if price_range <= 0:
+            return []
+
+        price_step = price_range / 5.0
+        timeframe_minutes = timeframe_sec // 60
+        minutes_limit = timeframe_minutes + 5
+
+        try:
+            raw_minutes = exchange.fetch_ohlcv(
+                symbol,
+                timeframe="1m",
+                since=candle_open_ts_ms,
+                limit=minutes_limit,
+            )
+        except Exception as e:
+            print(f"❌ {symbol} {timeframe}: ошибка получения 1m — {e}")
+            return []
+
+        if not raw_minutes:
+            return []
+
+        zone_volumes = [0.0] * 5
+
+        for row in raw_minutes:
+            if len(row) < 6:
+                continue
+
+            minute_open_ts_ms, o, h, l, c, vol = row[:6]
+
+            if not (candle_open_ts_ms <= minute_open_ts_ms < candle_close_ts_ms):
+                continue
+
+            minute_high = float(h)
+            minute_low = float(l)
+            mid_price = (minute_high + minute_low) / 2.0
+
+            distance_from_low = mid_price - candle_low
+            if distance_from_low < 0 or distance_from_low > price_range:
+                continue
+
+            zone_index_from_bottom = int(distance_from_low // price_step)
+            if zone_index_from_bottom >= 5:
+                zone_index_from_bottom = 4
+
+            zone_index_from_top = 4 - zone_index_from_bottom
+            zone_volumes[zone_index_from_top] += float(vol)
+
+        max_volume = max(zone_volumes)
+        if max_volume <= 0:
+            return []
+
+        max_zone_index = zone_volumes.index(max_volume)
+        max_zone_number = max_zone_index + 1
+
+        if max_zone_number == 1:
+            direction = "bear"
+        elif max_zone_number == 5:
+            direction = "bull"
+        else:
+            return []
+
+        return [
+            Signal(
+                symbol=symbol,
+                timeframe=timeframe,
+                t_close_ms=candle_close_ts_ms,
+                setup=self.name,
+                direction=direction,
+                extra={
+                    "open_str": open_str,
+                    "close_str": close_str,
+                    "max_zone_number": max_zone_number,
+                },
+            )
+        ]
+
+
+
+================================================================================
+FILE: rsi_zone.py
+PATH: setups\rsi_zone.py
+================================================================================
+
+# setups/rsi_zone.py
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from typing import List
+from utils.timeframes import tf_seconds
+from models import Candle, Signal
+
+
+def compute_rsi(closes: List[float], period: int = 14) -> float | None:
+    """
+    Расчёт RSI по формуле Wilder (RSI-14).
+    """
+    if len(closes) < period + 1:
+        return None
+
+    gains = []
+    losses = []
+
+    for i in range(1, period + 1):
+        diff = closes[-i] - closes[-i - 1]
+        if diff >= 0:
+            gains.append(diff)
+            losses.append(0.0)
+        else:
+            gains.append(0.0)
+            losses.append(-diff)
+
+    avg_gain = sum(gains) / period
+    avg_loss = sum(losses) / period
+
+    if avg_loss == 0:
+        return 100.0
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+class RSIZoneSetup:
+    """
+    Адаптер RSI Zone Entry.
+    Работает через compute_rsi и возвращает Signal.
+    """
+    name = "RSI"
+
+    def __init__(self, exchange, cfg, period: int = 14):
+        self.exchange = exchange
+        self.cfg = cfg
+        self.period = period
+
+    def on_candle(self, candle: Candle) -> list[Signal]:
+        exchange = self.exchange
+        cfg = self.cfg
+        symbol = candle.symbol
+        timeframe = candle.timeframe
+        candle_close_ts_ms = candle.t_close_ms
+
+        try:
+            raw = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=100)
+        except Exception as e:
+            print(f"❌ {symbol} {timeframe}: ошибка получения OHLCV для RSI — {e}")
+            return []
+
+        if not raw or len(raw) < 15:
+            return []
+
+        timeframe_sec = tf_seconds(exchange, timeframe)
+
+        closed_records = []
+        for row in raw:
+            t_open_ms, o, h, l, c, *_ = row
+            t_close_ms = int(t_open_ms) + timeframe_sec * 1000
+            if t_close_ms <= candle_close_ts_ms:
+                closed_records.append((t_close_ms, o, h, l, c))
+
+        if len(closed_records) < 15:
+            return []
+
+        closed_records.sort(key=lambda x: x[0])
+
+        if closed_records[-1][0] != candle_close_ts_ms:
+            return []
+
+        closes = [c[4] for c in closed_records]
+        rsi = compute_rsi(closes, period=self.period)
+        if rsi is None:
+            return []
+
+        candle_open_ts_ms = candle_close_ts_ms - timeframe_sec * 1000
+        tz = ZoneInfo(cfg.tz)
+        open_str = datetime.fromtimestamp(candle_open_ts_ms / 1000, tz).strftime("%Y-%m-%d %H:%M")
+        close_str = datetime.fromtimestamp(candle_close_ts_ms / 1000, tz).strftime("%Y-%m-%d %H:%M")
+
+        if rsi <= 20:
+            direction = "oversold"
+        elif rsi >= 80:
+            direction = "overbought"
+        else:
+            return []
+
+        return [
+            Signal(
+                symbol=symbol,
+                timeframe=timeframe,
+                t_close_ms=candle_close_ts_ms,
+                setup=self.name,
+                direction=direction,
+                extra={
+                    "rsi": rsi,
+                    "open_str": open_str,
+                    "close_str": close_str,
+                },
+            )
+        ]
+
+
+
+================================================================================
+FILE: signal_formatter.py
+PATH: signal_formatter.py
+================================================================================
+
+# signal_formatter.py
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from models import Signal
+
+
+def format_signal(signal: Signal, tz: str) -> str:
+    """
+    Формирует красивое Telegram‑сообщение.
+    """
+
+    # Иконка направления
+    if signal.direction in ("bull", "oversold"):
+        icon = "🟢"
+    elif signal.direction in ("bear", "overbought"):
+        icon = "🔴"
+    else:
+        icon = "⚪"
+
+    # Время закрытия свечи
+    dt_close = datetime.fromtimestamp(signal.t_close_ms / 1000, ZoneInfo(tz))
+    candle_close_str = dt_close.strftime("%H:%M")
+
+    # Время открытия свечи (если есть в extra)
+    open_str = signal.extra.get("open_str")
+    close_str = signal.extra.get("close_str")
+
+    if open_str and close_str:
+        candle_range = f"{open_str.split(' ')[1]}–{close_str.split(' ')[1]}"
+    else:
+        # fallback: просто время закрытия
+        candle_range = candle_close_str
+
+    # Время сигнала
+    now = datetime.now(ZoneInfo(tz))
+    signal_time = now.strftime("%H:%M %d.%m.%Y")
+
+    # Формируем текст
+    text = (
+        f"<b>{icon} {signal.setup}</b>\n"
+        f"<b>Таймфрейм:</b> {signal.timeframe}\n"
+        f"<b>Пара:</b> {signal.symbol}\n"
+        f"<b>Свеча:</b> {candle_range}\n"
+        f"<b>Сигнал:</b> {signal_time}"
+    )
+
+    return text
+
+
+
+================================================================================
+FILE: signal_router.py
+PATH: signal_router.py
+================================================================================
+
+# signal_router.py
+from dataclasses import dataclass
+from typing import Callable, List
+
+from models import Signal
+from notifier import send_telegram_message
+
+
+@dataclass
+class SignalRouter:
+    """
+    Централизованный маршрутизатор сигналов.
+    Каждый сигнал проходит через все подключённые обработчики.
+    """
+    handlers: List[Callable[[Signal], None]]
+
+    def route(self, signal: Signal) -> None:
+        for handler in self.handlers:
+            try:
+                handler(signal)
+            except Exception as e:
+                print(f"❌ Ошибка в обработчике сигналов: {e}")
+
+
+
+================================================================================
+FILE: test_save.py
+PATH: test_save.py
+================================================================================
+
+from handlers.paper_trading import PaperTradingEngine
+
+engine = PaperTradingEngine(exchange=None)
+engine.completed_trades = []  # или подставь реальные сделки
+engine.save_trades_to_json()
+
+
+
+================================================================================
+FILE: test_setup_manager.py
+PATH: test_setup_manager.py
+================================================================================
+
+from models import Candle
+from setup_manager import SetupManager
+from setups import FallingStarSetup, HammerSetup, MaxVolumeZoneSetup, RSIZoneSetup
+from falling_star_daemon import load_config, make_exchange
+
+
+def main():
+    cfg = load_config()
+    exchange = make_exchange(cfg.exchange_id)
+
+    setup_manager = SetupManager(
+        setups=[
+            FallingStarSetup(),
+            HammerSetup(),
+            MaxVolumeZoneSetup(exchange, cfg),
+            RSIZoneSetup(exchange, cfg),
+        ]
+    )
+
+    # тестовая свеча
+    candle = Candle(
+        symbol="BTC/USDT",
+        timeframe="5m",
+        t_close_ms=1700000000000,
+        o=50000,
+        h=50500,
+        l=49500,
+        c=49900,
+    )
+
+    signals = setup_manager.process_candle(candle)
+
+    print("\n=== РЕЗУЛЬТАТЫ ТЕСТА ===")
+    for sig in signals:
+        print(sig)
+
+
+if __name__ == "__main__":
+    main()
+
+
+
+================================================================================
+FILE: __init__.py
+PATH: utils\__init__.py
+================================================================================
+
+
+
+
+================================================================================
+FILE: timeframes.py
+PATH: utils\timeframes.py
+================================================================================
+
+# utils/timeframes.py
+import ccxt
+
+
+def tf_seconds(exchange: ccxt.Exchange, timeframe: str) -> int:
+    """
+    Унифицированная функция перевода таймфрейма в секунды.
+    Используется демоном и сетапами.
+    """
+    return exchange.parse_timeframe(timeframe)
+
+

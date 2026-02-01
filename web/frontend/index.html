@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Trading Analytics Dashboard</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <!-- ВЕРХНЯЯ ЗОНА -->
+    <div class="top-grid">
+
+        <!-- Блок 1 -->
+        <div class="info-card" id="initial-info">
+            <h3>Изначальные параметры</h3>
+            <p id="initial-balance"></p>
+            <p id="start-date"></p>
+        </div>
+
+        <!-- Блок 2 -->
+        <div class="info-card" id="closed-stats">
+            <h3>Закрытые позиции</h3>
+            <p id="closed-balance"></p>
+            <p id="closed-pnl"></p>
+            <p id="closed-count"></p>
+            <p id="closed-win"></p>
+            <p id="closed-loss"></p>
+            <p id="closed-long"></p>
+            <p id="closed-short"></p>
+            <p id="closed-winrate"></p>
+        </div>
+
+        <!-- Блок 3 -->
+        <div class="info-card" id="open-stats">
+            <h3>Открытые позиции</h3>
+            <p id="open-balance"></p>
+            <p id="open-pnl"></p>
+            <p id="open-count"></p>
+            <p id="open-win"></p>
+            <p id="open-loss"></p>
+            <p id="open-long"></p>
+            <p id="open-short"></p>
+            <p id="open-winrate"></p>
+        </div>
+
+    </div>
+
+    <!-- СРЕДНЯЯ ЗОНА -->
+    <h2>Сетапы</h2>
+    <div id="setups-grid" class="setups-grid"></div>
+
+    <!-- НИЖНЯЯ ЗОНА -->
+    <h2>Все сделки</h2>
+    <div id="trades-list"></div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/index.js"></script>
+
+</body>
+</html>

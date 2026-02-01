@@ -1,0 +1,246 @@
+[
+  {
+    "id": 4,
+    "symbol": "BTC/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769948100000,
+    "closed_at_ms": 1769948100000,
+    "entry_price": 78520.0,
+    "size_usdt": 100.0,
+    "tp1_price": 78235.53848500001,
+    "tp2_price": 77951.07697000002,
+    "sl_price": 78709.64100999999,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.0012735608762098828,
+        "entry_price": 78520.0,
+        "exit_price": 78709.64100999999,
+        "exit_time_ms": 1769948100000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 5,
+    "symbol": "ETH/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "MaxVolumeZone",
+    "opened_at_ms": 1769948100000,
+    "closed_at_ms": 1769948100000,
+    "entry_price": 2404.43,
+    "size_usdt": 100.0,
+    "tp1_price": 2392.6401799999994,
+    "tp2_price": 2380.8503599999985,
+    "sl_price": 2412.2898800000003,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.041589898645417005,
+        "entry_price": 2404.43,
+        "exit_price": 2412.2898800000003,
+        "exit_time_ms": 1769948100000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 1,
+    "symbol": "SUI/USDT",
+    "timeframe": "5m",
+    "direction": "long",
+    "setup": "MaxVolumeZone",
+    "opened_at_ms": 1769947800000,
+    "closed_at_ms": 1769948100000,
+    "entry_price": 1.1398,
+    "size_usdt": 100.0,
+    "tp1_price": 1.1427085,
+    "tp2_price": 1.1456169999999997,
+    "sl_price": 1.1398,
+    "tp1_hit": true,
+    "tp2_hit": true,
+    "sl_hit": false,
+    "close_reason": "TP1+TP2",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 50.0,
+        "qty": 43.86734514827163,
+        "entry_price": 1.1398,
+        "exit_price": 1.1427085,
+        "exit_time_ms": 1769948100000,
+        "reason": "TP1",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      },
+      {
+        "size_usdt": 50.0,
+        "qty": 43.86734514827163,
+        "entry_price": 1.1398,
+        "exit_price": 1.1456169999999997,
+        "exit_time_ms": 1769948100000,
+        "reason": "TP2",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 2,
+    "symbol": "TON/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "MaxVolumeZone",
+    "opened_at_ms": 1769948100000,
+    "closed_at_ms": 1769948400000,
+    "entry_price": 1.368,
+    "size_usdt": 100.0,
+    "tp1_price": 1.3629449999999999,
+    "tp2_price": 1.3578899999999998,
+    "sl_price": 1.368,
+    "tp1_hit": true,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "TP1+SL",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 50.0,
+        "qty": -36.549707602339176,
+        "entry_price": 1.368,
+        "exit_price": 1.3629449999999999,
+        "exit_time_ms": 1769948100000,
+        "reason": "TP1",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      },
+      {
+        "size_usdt": 50.0,
+        "qty": -36.549707602339176,
+        "entry_price": 1.368,
+        "exit_price": 1.368,
+        "exit_time_ms": 1769948400000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 6,
+    "symbol": "SUI/USDT",
+    "timeframe": "15m",
+    "direction": "long",
+    "setup": "MaxVolumeZone",
+    "opened_at_ms": 1769948100000,
+    "closed_at_ms": 1769948400000,
+    "entry_price": 1.1374,
+    "size_usdt": 100.0,
+    "tp1_price": 1.1382070000000002,
+    "tp2_price": 1.1390140000000004,
+    "sl_price": 1.1368619999999998,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": 87.91981712678037,
+        "entry_price": 1.1374,
+        "exit_price": 1.1368619999999998,
+        "exit_time_ms": 1769948400000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 7,
+    "symbol": "SUI/USDT",
+    "timeframe": "5m",
+    "direction": "long",
+    "setup": "Hammer",
+    "opened_at_ms": 1769948400000,
+    "closed_at_ms": 1769948700000,
+    "entry_price": 1.1384,
+    "size_usdt": 100.0,
+    "tp1_price": 1.1471505500000003,
+    "tp2_price": 1.1559011000000006,
+    "sl_price": 1.1325663,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": 87.84258608573435,
+        "entry_price": 1.1384,
+        "exit_price": 1.1325663,
+        "exit_time_ms": 1769948700000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 11,
+    "symbol": "TON/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949300000,
+    "closed_at_ms": 1769949600000,
+    "entry_price": 1.369,
+    "size_usdt": 100.0,
+    "tp1_price": 1.3639435,
+    "tp2_price": 1.358887,
+    "sl_price": 1.372371,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -73.04601899196494,
+        "entry_price": 1.369,
+        "exit_price": 1.372371,
+        "exit_time_ms": 1769949600000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  }
+]
