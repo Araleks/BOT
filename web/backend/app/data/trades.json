@@ -242,5 +242,463 @@
         "pnl_percent": 0.0
       }
     ]
+  },
+  {
+    "id": 8,
+    "symbol": "BTC/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "MaxVolumeZone",
+    "opened_at_ms": 1769948700000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 78326.93,
+    "size_usdt": 100.0,
+    "tp1_price": 77759.63524999999,
+    "tp2_price": 77192.34049999998,
+    "sl_price": 78705.1265,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.0012767001081237324,
+        "entry_price": 78326.93,
+        "exit_price": 78705.1265,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 9,
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "direction": "short",
+    "setup": "MaxVolumeZone",
+    "opened_at_ms": 1769949000000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 78447.36,
+    "size_usdt": 100.0,
+    "tp1_price": 78060.71025,
+    "tp2_price": 77674.0605,
+    "sl_price": 78705.1265,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.001274740156966404,
+        "entry_price": 78447.36,
+        "exit_price": 78705.1265,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 13,
+    "symbol": "BTC/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949600000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 78448.25,
+    "size_usdt": 100.0,
+    "tp1_price": 78001.89927500002,
+    "tp2_price": 77555.54855000004,
+    "sl_price": 78745.81714999999,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.0012747256949645147,
+        "entry_price": 78448.25,
+        "exit_price": 78745.81714999999,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 17,
+    "symbol": "BTC/USDT",
+    "timeframe": "15m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949900000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 78427.56,
+    "size_usdt": 100.0,
+    "tp1_price": 77950.17427500001,
+    "tp2_price": 77472.78855000003,
+    "sl_price": 78745.81714999999,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.0012750619807628848,
+        "entry_price": 78427.56,
+        "exit_price": 78745.81714999999,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 14,
+    "symbol": "ETH/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949600000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 2400.03,
+    "size_usdt": 100.0,
+    "tp1_price": 2383.3368750000004,
+    "tp2_price": 2366.6437500000006,
+    "sl_price": 2411.15875,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.04166614583984367,
+        "entry_price": 2400.03,
+        "exit_price": 2411.15875,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 18,
+    "symbol": "ETH/USDT",
+    "timeframe": "15m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949900000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 2395.43,
+    "size_usdt": 100.0,
+    "tp1_price": 2371.8368749999995,
+    "tp2_price": 2348.243749999999,
+    "sl_price": 2411.15875,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.041746158309781546,
+        "entry_price": 2395.43,
+        "exit_price": 2411.15875,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 22,
+    "symbol": "ETH/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769950800000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 2396.53,
+    "size_usdt": 100.0,
+    "tp1_price": 2389.5568300000004,
+    "tp2_price": 2382.5836600000002,
+    "sl_price": 2401.17878,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -0.04172699694975652,
+        "entry_price": 2396.53,
+        "exit_price": 2401.17878,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 15,
+    "symbol": "SUI/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949600000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 1.135,
+    "size_usdt": 100.0,
+    "tp1_price": 1.1245888000000002,
+    "tp2_price": 1.1141776,
+    "sl_price": 1.1419408,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -88.10572687224669,
+        "entry_price": 1.135,
+        "exit_price": 1.1419408,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 19,
+    "symbol": "SUI/USDT",
+    "timeframe": "15m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949900000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 1.1317,
+    "size_usdt": 100.0,
+    "tp1_price": 1.1163387999999999,
+    "tp2_price": 1.1009775999999998,
+    "sl_price": 1.1419408,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -88.36264027569145,
+        "entry_price": 1.1317,
+        "exit_price": 1.1419408,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 16,
+    "symbol": "XRP/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949600000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 1.6411,
+    "size_usdt": 100.0,
+    "tp1_price": 1.6285783,
+    "tp2_price": 1.6160566000000003,
+    "sl_price": 1.6494478,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -60.934738894643836,
+        "entry_price": 1.6411,
+        "exit_price": 1.6494478,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 20,
+    "symbol": "XRP/USDT",
+    "timeframe": "15m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949900000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 1.6413,
+    "size_usdt": 100.0,
+    "tp1_price": 1.6290783000000002,
+    "tp2_price": 1.6168566000000002,
+    "sl_price": 1.6494478,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -60.92731371473832,
+        "entry_price": 1.6413,
+        "exit_price": 1.6494478,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 23,
+    "symbol": "XRP/USDT",
+    "timeframe": "15m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769950800000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 1.6408,
+    "size_usdt": 100.0,
+    "tp1_price": 1.6353358,
+    "tp2_price": 1.6298716000000002,
+    "sl_price": 1.6444428,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -60.945880058508045,
+        "entry_price": 1.6408,
+        "exit_price": 1.6444428,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 12,
+    "symbol": "TON/USDT",
+    "timeframe": "5m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949600000,
+    "closed_at_ms": 1769950800000,
+    "entry_price": 1.37,
+    "size_usdt": 100.0,
+    "tp1_price": 1.3634405000000003,
+    "tp2_price": 1.3568810000000002,
+    "sl_price": 1.37,
+    "tp1_hit": true,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "TP1+SL",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 50.0,
+        "qty": -36.4963503649635,
+        "entry_price": 1.37,
+        "exit_price": 1.3634405000000003,
+        "exit_time_ms": 1769950500000,
+        "reason": "TP1",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      },
+      {
+        "size_usdt": 50.0,
+        "qty": -36.4963503649635,
+        "entry_price": 1.37,
+        "exit_price": 1.37,
+        "exit_time_ms": 1769950800000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
+  },
+  {
+    "id": 21,
+    "symbol": "TON/USDT",
+    "timeframe": "15m",
+    "direction": "short",
+    "setup": "FallingStar",
+    "opened_at_ms": 1769949900000,
+    "closed_at_ms": 1769951700000,
+    "entry_price": 1.366,
+    "size_usdt": 100.0,
+    "tp1_price": 1.3534405,
+    "tp2_price": 1.3408810000000002,
+    "sl_price": 1.374373,
+    "tp1_hit": false,
+    "tp2_hit": false,
+    "sl_hit": true,
+    "close_reason": "SL-only",
+    "pnl_usdt": 0.0,
+    "pnl_percent": 0.0,
+    "parts": [
+      {
+        "size_usdt": 100.0,
+        "qty": -73.20644216691068,
+        "entry_price": 1.366,
+        "exit_price": 1.374373,
+        "exit_time_ms": 1769951700000,
+        "reason": "SL",
+        "pnl_usdt": 0.0,
+        "pnl_percent": 0.0
+      }
+    ]
   }
 ]
