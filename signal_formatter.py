@@ -2,8 +2,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from models import Signal
-
+from shared.models import Signal
 
 def format_signal(signal: Signal, tz: str) -> str:
     """

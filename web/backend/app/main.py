@@ -12,7 +12,7 @@ from .services import (
     calculate_setup_analytics,
     calculate_setup_symbol_analytics,
 )
-from .models import (
+from shared.models import (
     CompletedTrade,
     StatsResponse,
     EquityResponse,
@@ -20,6 +20,7 @@ from .models import (
     SetupAnalyticsResponse,
     SetupSymbolAnalyticsResponse,
 )
+
 
 app = FastAPI(
     title="Paper Trading Analytics API",

@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from typing import Callable, List
 
-from models import Signal
+from shared.models import Signal
 from notifier import send_telegram_message
 
 

@@ -1,7 +1,7 @@
 # analytics/equity.py
 
 from typing import List
-from web.backend.app.models import CompletedTrade
+from shared.models import CompletedTrade
 import matplotlib.pyplot as plt
 
 

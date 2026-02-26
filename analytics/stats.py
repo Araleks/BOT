@@ -1,7 +1,7 @@
 # analytics/stats.py
 
 from typing import List
-from web.backend.app.models import CompletedTrade
+from shared.models import CompletedTrade
 
 
 def print_stats_for_trades(trades: List[CompletedTrade]) -> None:

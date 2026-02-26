@@ -13,12 +13,22 @@ from utils.timeframes import tf_seconds
 
 from setup_manager import SetupManager
 from setups import FallingStarSetup, HammerSetup, MaxVolumeZoneSetup, RSIZoneSetup
-from models import Candle
+from shared.models import Candle
 
 from signal_router import SignalRouter
 from handlers.telegram_handler import make_telegram_handler
 from handlers.log_handler import log_handler
 from handlers.paper_trading import PaperTradingEngine, make_paper_trading_handler
+
+# 🔹 НОВОЕ: импортируем движок комбинаций
+from engine.composite_engine import CompositeEngine, CompositeRule
+from engine.composite_rules import (
+    rule_falling_star_volume,
+    rule_hammer_volume,
+    rule_falling_star_volume_rsi,
+    rule_hammer_volume_rsi,
+    rule_volume_rsi,
+)
 
 
 @dataclass
@@ -54,10 +64,13 @@ def make_exchange(exchange_id: str) -> ccxt.Exchange:
     exchange.load_markets()
     return exchange
 
+
 Store = Dict[Tuple[str, str], Deque[Tuple[int, float, float, float, float]]]
+
 
 def ts_close_from_open(t_open_ms: int, timeframe_sec: int) -> int:
     return t_open_ms + timeframe_sec * 1000
+
 
 def main():
     cfg = load_config()
@@ -68,12 +81,12 @@ def main():
 
     router = SignalRouter(
         handlers=[
-            make_telegram_handler(cfg.tg_token, cfg.tg_chat_id, cfg.tz), 
-            log_handler, 
+            make_telegram_handler(cfg.tg_token, cfg.tg_chat_id, cfg.tz),
+            log_handler,
             make_paper_trading_handler(paper_engine),
         ]
     )
-    
+
     setup_manager = SetupManager(
         setups=[
             FallingStarSetup(),
@@ -83,9 +96,21 @@ def main():
         ]
     )
 
+    # 🔹 создаём движок комбинаций ОДИН РАЗ
+    composite_engine = CompositeEngine(
+        rules=[
+            CompositeRule("FallingStar+Volume", rule_falling_star_volume),
+            CompositeRule("Hammer+Volume", rule_hammer_volume),
+            CompositeRule("FallingStar+Volume+RSI", rule_falling_star_volume_rsi),
+            CompositeRule("Hammer+Volume+RSI", rule_hammer_volume_rsi),
+            CompositeRule("Volume+RSI", rule_volume_rsi),
+        ]
+    )
+
     last_seen_close: Dict[Tuple[str, str], int] = {}
     store: Store = {}
 
+    # ---------- Предзаполнение ----------
     for symbol in cfg.symbols:
         for timeframe in cfg.timeframes:
             key = (symbol, timeframe)
@@ -99,7 +124,7 @@ def main():
                 timeframe_sec = tf_seconds(exchange, timeframe)
 
                 closed_rows = raw[:-1]
-                deque5: Deque[Candle] = deque(maxlen=5)
+                deque5: Deque[Tuple[int, float, float, float, float]] = deque(maxlen=5)
 
                 for row in closed_rows[-5:]:
                     t_open_ms, o, h, l, c, *_ = row
@@ -126,6 +151,7 @@ def main():
 
     print("🟢 Старт мониторинга…")
 
+    # ---------- Основной цикл ----------
     while True:
         for symbol in cfg.symbols:
             for timeframe in cfg.timeframes:
@@ -139,18 +165,19 @@ def main():
                     timeframe_sec = tf_seconds(exchange, timeframe)
 
                     closed_records: List[Tuple[int, float, float, float, float]] = []
-                    for row in raw[:-1]: 
-                        t_open_ms, o, h, l, c, *_ = row 
-                        t_close_ms = ts_close_from_open(int(t_open_ms), timeframe_sec) 
-                        closed_records.append( ( 
-                            t_close_ms, 
-                            float(o), 
-                            float(h), 
-                            float(l), 
-                            float(c), 
-                            ) 
+                    for row in raw[:-1]:
+                        t_open_ms, o, h, l, c, *_ = row
+                        t_close_ms = ts_close_from_open(int(t_open_ms), timeframe_sec)
+                        closed_records.append(
+                            (
+                                t_close_ms,
+                                float(o),
+                                float(h),
+                                float(l),
+                                float(c),
+                            )
                         )
-                    
+
                     closed_records.sort(key=lambda x: x[0])
 
                     last_close_ts = last_seen_close.get(key, 0)
@@ -169,22 +196,32 @@ def main():
                             c=c,
                         )
 
-                        # 1. Сначала даём свечу PaperTradingEngine (для отработки SL/TP по уже открытым позициям) 
+                        # 1. Сначала даём свечу PaperTradingEngine (SL/TP по открытым позициям)
                         paper_engine.on_candle(candle)
-                        
-                        # 2. Генерируем сигналы
-                        signals = setup_manager.process_candle(candle)
 
-                        # 3. Обогащаем сигналы данными свечи (для открытия новых позиций)
-                        for sig in signals: 
-                            sig.extra.setdefault("candle", { 
-                                "o": candle.o, 
-                                "h": candle.h, 
-                                "l": candle.l, 
-                                "c": candle.c, 
-                            }) 
+                        # 2. Генерируем атомарные сигналы от сетапов
+                        signals_raw = setup_manager.process_candle(candle)
+
+                        # 3. Обогащаем атомарные сигналы данными свечи
+                        for sig in signals_raw:
+                            sig.extra.setdefault(
+                                "candle",
+                                {
+                                    "o": candle.o,
+                                    "h": candle.h,
+                                    "l": candle.l,
+                                    "c": candle.c,
+                                },
+                            )
+
+                        # 4. Генерируем комбинированные сигналы
+                        signals_composite = composite_engine.process(signals_raw)
+
+                        # 5. Отправляем ВСЕ сигналы в роутер
+                        for sig in signals_raw + signals_composite:
                             router.route(sig)
 
+                        # 6. Обновляем хранилище свечей
                         deque_for_key = store.get(key)
                         if deque_for_key is None:
                             deque_for_key = deque(maxlen=5)

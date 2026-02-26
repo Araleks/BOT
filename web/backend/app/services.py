@@ -1,6 +1,6 @@
 #C:\DM\BOT_FS\web\backend\app\services.py
 from typing import List, Optional, Dict, Tuple
-from .models import (
+from shared.models import (
     CompletedTrade,
     StatsResponse,
     EquityResponse,
@@ -10,6 +10,7 @@ from .models import (
     SetupSymbolAnalyticsResponse,
     SetupSymbolStats,
 )
+
 
 
 # -----------------------------

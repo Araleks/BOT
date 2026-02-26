@@ -1,7 +1,7 @@
 #C:\DM\BOT_FS\web\backend\app\repository.py
 import json
 from typing import List
-from .models import CompletedTrade, TradePart
+from shared.models import CompletedTrade, TradePart
 from .config import TRADES_JSON_PATH
 
 

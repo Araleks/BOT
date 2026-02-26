@@ -2,7 +2,7 @@
 
 import csv
 from typing import List
-from web.backend.app.models import CompletedTrade
+from shared.models import CompletedTrade
 
 
 def export_trades_to_csv(trades: List[CompletedTrade], path: str) -> None:
